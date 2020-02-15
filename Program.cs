@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace tplStuff
 {
-    class SimpleWaitPulse {
+    class PrintInOrder {
         static Foo foo = new Foo();
 
         static void Main() {
@@ -13,40 +13,59 @@ namespace tplStuff
         }
     }
 
-    class Foo {
-        object locker = new object();
-        int num = 0;
-
+    class Foo : StateMachine {
         public void first() {
-            Init(()=>System.Console.WriteLine("first"));
-        }
-        public void second() {
-            Wait(1,()=>System.Console.WriteLine("second"));
-        }
-        public void third() {
-            Wait(2,()=>System.Console.WriteLine("third"));
+            Init(
+                doit:()=>System.Console.WriteLine("first"), 
+                next:1);
         }
 
-        void Init(Action doit) {
+        public void second() {
+            OnNext(
+                state:1, 
+                doit:()=>System.Console.WriteLine("second"), 
+                next:2);
+        }
+
+        public void third() {
+            OnNext(
+                state:2, 
+                doit:()=>System.Console.WriteLine("third"), 
+                next:3);
+        }
+    }
+
+    abstract class StateMachine {
+        object locker = new object();
+        int currState = 0;
+
+        protected void Init(Action doit, int next) {
             lock (locker) {
                 doit();
-                num = 1;
+                TransitionTo(next);
+            }
+        }
+
+        protected void OnNext(int state, Action doit, int next) {
+            lock (locker) {
+                WaitOn(state);
+                doit();
+                TransitionTo(next);
+            } 
+        }
+
+        void WaitOn(int wait) {
+            while (currState != wait) {
+                Monitor.Wait(locker);
                 Monitor.Pulse(locker);
             }
         }
 
-        void Wait(int n, Action doit) {
-            lock (locker) {
-                while (num != n) {
-                    Monitor.Wait(locker);
-                    Monitor.Pulse(locker);
-                }
-                doit();
-                num = n+1;
-                Monitor.Pulse(locker);
-            } 
+        void TransitionTo(int next) {
+            currState = next;
+            Monitor.Pulse(locker);
         }
-    }
+    } 
 }
 
 
