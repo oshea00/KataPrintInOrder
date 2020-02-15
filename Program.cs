@@ -39,6 +39,7 @@ namespace tplStuff
             lock (locker) {
                 while (num != n) {
                     Monitor.Wait(locker);
+                    Monitor.Pulse(locker);
                 }
                 doit();
                 num = n+1;
